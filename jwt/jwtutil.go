@@ -2,33 +2,32 @@ package jwt
 
 import (
 	"errors"
-	"github.com/dgrijalva/jwt-go"
+	"fmt"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var Secret = []byte("what a secret")
 
-// jwt过期时间, 按照实际环境设置
-const expiration = 2 * time.Minute
-
 type Claims struct {
 	// 自定义字段, 可以存在用户名, 用户ID, 用户角色等等
 	Username string
-	// jwt.StandardClaims包含了官方定义的字段
-	jwt.StandardClaims
+	// 包含了官方定义的字段
+	jwt.RegisteredClaims
 }
 
 func GenToken(username string) (string, error) {
 	// 创建声明
 	a := &Claims{
-		Username: username,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(expiration).Unix(), // 过期时间
-			IssuedAt:  time.Now().Unix(),                 // 签发时间
-			Issuer:    "gin-jwt-demo",                    // 签发者
-			Id:        "",                                // 按需求选这个, 有些实现中, 会控制这个ID是不是在黑/白名单来判断是否还有效
-			NotBefore: 0,                                 // 生效起始时间
-			Subject:   "",                                // 主题
+		username,
+		jwt.RegisteredClaims {
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)), // 过期时间
+			IssuedAt:  jwt.NewNumericDate(time.Now()),                 // 签发时间
+			Issuer:    "jwt-demo",                    // 签发者
+			ID:        "",                                // 按需求选这个, 有些实现中, 会控制这个ID是不是在黑/白名单来判断是否还有效
+			NotBefore: jwt.NewNumericDate(time.Now()),                                // 生效起始时间
+			Subject:   "somebody",                                // 主题
 		},
 	}
 
@@ -43,16 +42,20 @@ func GenToken(username string) (string, error) {
 }
 
 func ParseToken(tokenStr string) (*Claims, error) {
-	// 第三个参数: 提供一个回调函数用于提供要选择的秘钥, 回调函数里面的token参数,是已经解析但未验证的,可以根据token里面的值做一些逻辑, 如`kid`的判断
+	// 提供一个回调函数用于提供要选择的秘钥, 回调函数里面的token参数,是已经解析但未验证的,可以根据token里面的值做一些逻辑, 如`kid`的判断
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+
 		return Secret, nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	// 校验token
+	
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
 		return claims, nil
+	} else {
+		fmt.Println(err)
 	}
 	return nil, errors.New("invalid token")
 }

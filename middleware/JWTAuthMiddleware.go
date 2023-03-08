@@ -3,7 +3,6 @@ package middleware
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"time"
 	"utils/jwt"
 )
 
@@ -26,14 +25,8 @@ func JWTAuthMiddleware() func(ctx *gin.Context) {
 				"msg":  "ERR_AUTH_INVALID",
 			})
 			return
-		} else if time.Now().Unix() > claims.ExpiresAt {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code": 3,
-				"msg":  "ERR_AUTH_EXPIRED",
-			})
-			return
 		}
-
+		
 		// 此处已经通过了, 可以把Claims中的有效信息拿出来放入上下文使用
 		ctx.Set("username", claims.Username)
 		ctx.Next()
